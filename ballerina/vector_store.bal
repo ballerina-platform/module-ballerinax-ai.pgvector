@@ -147,19 +147,19 @@ public isolated class VectorStore {
                         ) t
                         WHERE ${baseWhereClause}
                         ORDER BY similarity DESC
+                        LIMIT ${self.topK};` : 
+                    string `SELECT 
+                            id::text AS id,
+                            embedding::text AS embedding,
+                            metadata::text AS metadata,
+                            (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
+                        FROM ${self.tableName}
+                        WHERE 
+                            (1 - (embedding <=> '${embeddings}'::vector)) IS NOT NULL AND NOT 
+                            ((1 - (embedding <=> '${embeddings}'::vector)) = 'NaN'::float) 
+                            ${innerFilterClause}
+                        ORDER BY similarity DESC
                         LIMIT ${self.topK};`
-                    : string `SELECT 
-                                id::text AS id,
-                                embedding::text AS embedding,
-                                metadata::text AS metadata,
-                                (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
-                            FROM ${self.tableName}
-                            WHERE 
-                                (1 - (embedding <=> '${embeddings}'::vector)) IS NOT NULL AND NOT 
-                                ((1 - (embedding <=> '${embeddings}'::vector)) = 'NaN'::float) 
-                                ${innerFilterClause}
-                            ORDER BY similarity DESC
-                            LIMIT ${self.topK};`
             }`;
             sql:ParameterizedQuery parameterizedQuery = ``;
             parameterizedQuery.strings = [queryValue];
