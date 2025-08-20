@@ -17,9 +17,9 @@
 import ballerina/ai;
 import ballerina/test;
 import ballerina/uuid;
-import ballerinax/postgresql;
 
-string tableName = "vector_table";
+string tableName = "dense_table_18";
+string sparseTableName = "sparse_table_18";
 string id = uuid:createRandomUuid();
 string host = "localhost";
 string user = "postgres";
@@ -27,33 +27,68 @@ string password = "postgres";
 string database = "vector_store";
 
 VectorStore vectorStore = check new (
-    options = {
-        connectTimeout: 10,
-        ssl: {
-            mode: postgresql:DISABLE
-        }
-    },
-    connectionConfigs = {
+    configs = {
         host,
         user,
         password,
         database,
-        tableName
+        tableName,
+        topK: 1
     },
-    vectorDimension = 3
+    vectorDimension = 1536
 );
 
-final float[] embedding = [0, 0.5, 0.25];
+VectorStore sparseVectorStore = check new (
+    configs = {
+        host,
+        user,
+        password,
+        database,
+        tableName: sparseTableName,
+        embeddingType: ai:SPARSE
+    },
+    vectorDimension = 200
+);
 
-@test:Config {
-    groups: ["add"]
+final float[] vectorEmbedding = check generateEmbedding(1536);
+final float[] sparseVectorEmbedding = check generateEmbedding(200);
+
+function generateEmbedding(int dimension) returns float[]|error {
+    float[] embedding = [];
+    foreach int i in 1...dimension {
+        embedding.push(check (i % 10).cloneWithType(float));
+    }
+    return embedding;
 }
+
+@test:Config {}
 function testAddEntry() returns error? {
     ai:Error? result = vectorStore.add([
         {
             id,
-            embedding,
-            chunk: {'type: "text", content: "This is a chunk"}
+            embedding: vectorEmbedding,
+            chunk: {
+                'type: "text",
+                content: "This is a chunk"
+            }
+        }
+    ]);
+    test:assertTrue(result !is ai:Error);
+}
+
+@test:Config {}
+function testAddSparseEntry() returns error? {
+    ai:Error? result = sparseVectorStore.add([
+        {
+            id,
+            embedding: {
+                indices: [0, 2],
+                values: sparseVectorEmbedding
+            },
+            chunk: {
+                'type: "text",
+                content: "This is a chunk"
+            }
         }
     ]);
     test:assertTrue(result !is ai:Error);
@@ -64,20 +99,28 @@ function testAddEntry() returns error? {
 }
 function testQueryEntries() returns error? {
     ai:VectorMatch[] query = check vectorStore.query({
-        embedding,
+        embedding: vectorEmbedding,
         filters: {
             filters: [
                 {
                     'key: "id",
                     operator: ai:EQUAL,
                     value: id
-                },
-                {
-                    'key: "embedding",
-                    operator: ai:EQUAL,
-                    value: embedding.toJsonString()
                 }
             ]
+        }
+    });
+    test:assertEquals(query[0].similarityScore, 1.0);
+}
+
+@test:Config {
+    dependsOn: [testAddSparseEntry]
+}
+function testQueryEntriesWithSparseEmbedding() returns error? {
+    ai:VectorMatch[] query = check sparseVectorStore.query({
+        embedding: {
+            indices: [0, 2],
+            values: sparseVectorEmbedding
         }
     });
     test:assertEquals(query[0].similarityScore, 1.0);
@@ -88,5 +131,8 @@ function testQueryEntries() returns error? {
 }
 function testDeleteEntry() returns error? {
     ai:Error? delete = vectorStore.delete(id);
+    test:assertTrue(delete !is ai:Error);
+
+    delete = sparseVectorStore.delete(id);
     test:assertTrue(delete !is ai:Error);
 }
