@@ -14,18 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import ballerina/ai;
 import ballerina/sql;
-
-# Represents similarity search types for vector comparisons
-#
-# + EUCLIDEAN_DISTANCE - L2 distance (Euclidean distance)
-# + COSINE_DISTANCE - Cosine distance (1 - cosine similarity)
-# + NEGATIVE_INNER_PRODUCT - Negative inner product
-public enum SimilarityType {
-    EUCLIDEAN_DISTANCE = "<->",
-    COSINE_DISTANCE = "<=>",
-    NEGATIVE_INNER_PRODUCT = "<#>"
-}
+import ballerinax/postgresql;
 
 # Represents vector data without ID
 #
@@ -40,38 +31,35 @@ public type SearchResult record {
     float similarity?;
 };
 
-# Search configuration for vector queries
+# Configuration for the vector store
 #
-# + similarityType - Type of similarity measure to use
-# + limit - Maximum number of results to return
-# + threshold - Optional similarity threshold
-# + metadata - Optional metadata filters
-public type SearchConfig record {|
-    SimilarityType similarityType = COSINE_DISTANCE;
-    int 'limit = 10;
-    float? threshold = ();
-    map<sql:Value> metadata = {};
+# + topK - Maximum number of results to return
+# + embeddingType - Type of the embedding to be used
+public type Configuration record {|
+    *ConnectionConfig;
+    int topK = 10;
+    ai:VectorStoreQueryMode embeddingType = ai:DENSE;
 |};
 
 # Connection configuration for the vector store
 #
-# + host - Database host
-# + user - Database username
-# + password - Database password
-# + database - Database name
-# + tableName - Table name
-# + additionalColumns - Additional columns to be added to the table
-# + port - Database port
-# + topK - Maximum number of results to return
+# + host - The host of the database
+# + port - The port of the database
+# + user - The username of the database
+# + password - The password of the database
+# + database - The name of the database
+# + tableName - The name of the table
+# + options - The options for the connection
+# + connectionPool - The connection pool configurations for the database
 public type ConnectionConfig record {|
     string host;
+    int port = 5432;
     string user;
     string password;
     string database;
     string tableName?;
-    Column[] additionalColumns?;
-    int port = 5432;
-    int topK = 10;
+    postgresql:Options options = {};
+    sql:ConnectionPool connectionPool = {};
 |};
 
 # Represents a column in the database
