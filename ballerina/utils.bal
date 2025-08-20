@@ -15,6 +15,44 @@
 // under the License.
 
 import ballerina/ai;
+import ballerina/regex;
+
+isolated function deserializeSparseEmbedding(string embedding, int dimension) returns ai:SparseVector|error {
+    int? indexOf = embedding.indexOf("}");
+    string vector = embedding.substring(1, indexOf !is () ? indexOf : embedding.length() - 3);
+    string[] parts = regex:split(vector, ",");
+    int[] indices = from int index in 0 ... dimension
+        select index;
+    float[] values = [];
+    foreach string part in parts {
+        string[] indexValue = regex:split(part, ":");
+        int index = check int:fromString(indexValue[0]);
+        if indices.indexOf(index - 1) != () {
+            _ = indices.remove(index - 1);
+        }
+        values.push(check float:fromString(indexValue[1]));
+    }
+    return {
+        indices,
+        values
+    };
+}
+
+isolated function serializeSparseEmbedding(ai:SparseVector embedding, int dimension) returns string {
+    string vector = "{";
+    int count = 0;
+    foreach int index in embedding.indices {
+        float value = embedding.values[count];
+        count += 1;
+        int oneBasedIndex = index + 1;
+        vector += string `${oneBasedIndex}:${value}`;
+        if index != embedding.indices[embedding.indices.length() - 1] {
+            vector += ",";
+        }
+    }
+    vector += string `}/${dimension}`;
+    return vector;
+}
 
 isolated function generateColumns(Column[] additionalColumns) returns string {
     if additionalColumns.length() == 0 {
