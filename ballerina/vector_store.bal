@@ -15,11 +15,11 @@
 // under the License.
 
 import ballerina/ai;
+import ballerina/log;
 import ballerina/sql;
+import ballerina/uuid;
 import ballerinax/postgresql;
 import ballerinax/postgresql.driver as _;
-import ballerina/log;
-import ballerina/uuid;
 
 # Pgvector Vector Store implementation with support for Dense, Sparse, and Hybrid vector search modes.
 #
@@ -31,33 +31,26 @@ public isolated class VectorStore {
     final postgresql:Client dbClient;
     private final int vectorDimension;
     private string tableName = "vector_store";
-    private Column[] additionalColumns = [];
+    private final ai:VectorStoreQueryMode embeddingType;
     private int topK;
 
-    public isolated function init(ConnectionConfig connectionConfigs, int vectorDimension = 1536, postgresql:Options options = {
-                connectTimeout: 10,
-                ssl: {
-                    mode: postgresql:REQUIRE
-                }
-            }, sql:ConnectionPool connectionPool = {}) returns error? {
+    public isolated function init(Configuration configs, int vectorDimension = 1536) returns error? {
 
         self.dbClient = check new (
-            host = connectionConfigs.host,
-            username = connectionConfigs.user,
-            password = connectionConfigs.password,
-            database = connectionConfigs.database,
-            port = connectionConfigs.port,
-            options = options,
-            connectionPool = connectionPool
+            host = configs.host,
+            username = configs.user,
+            password = configs.password,
+            database = configs.database,
+            port = configs.port,
+            options = configs.options,
+            connectionPool = configs.connectionPool
         );
         self.vectorDimension = vectorDimension;
-
-        string? tableName = connectionConfigs.tableName;
+        self.embeddingType = configs.embeddingType;
+        string? tableName = configs.tableName;
         self.tableName = tableName !is () ? tableName : self.tableName;
 
-        Column[]? additionalColumns = connectionConfigs.additionalColumns;
-        self.additionalColumns = additionalColumns !is () ? additionalColumns.cloneReadOnly() : self.additionalColumns.cloneReadOnly();
-        self.topK = connectionConfigs.topK;
+        self.topK = configs.topK;
         lock {
             error? initError = self.initializeDatabase(self.tableName);
             if initError is error {
@@ -73,17 +66,17 @@ public isolated class VectorStore {
         string query = string `CREATE TABLE IF NOT EXISTS ${tableName} (
             id VARCHAR PRIMARY KEY,
             content TEXT,
-            embedding vector(${self.vectorDimension}),
+            embedding ${self.embeddingType == ai:SPARSE ? "sparsevec" : "vector"}(${self.vectorDimension}),
             metadata JSONB
         )`;
         parameterizedQuery.strings = [query];
         _ = check self.dbClient->execute(parameterizedQuery);
 
+        string opClass = self.embeddingType == ai:SPARSE ? "sparsevec_cosine_ops" : "vector_cosine_ops";
         query = string `
             CREATE INDEX IF NOT EXISTS ${tableName}_embedding_idx
             ON ${tableName}
-            USING ivfflat (embedding vector_cosine_ops)
-            WITH (lists = 100);
+            USING hnsw (embedding ${opClass});
         `;
         parameterizedQuery.strings = [query];
         _ = check self.dbClient->execute(parameterizedQuery);
@@ -92,6 +85,10 @@ public isolated class VectorStore {
     public isolated function add(ai:VectorEntry[] entries) returns ai:Error? {
         lock {
             foreach ai:VectorEntry item in entries.cloneReadOnly() {
+                ai:Embedding embedding = item.embedding;
+                string embeddings = embedding is ai:SparseVector ?
+                    serializeSparseEmbedding(embedding, self.vectorDimension) : embedding.toJsonString();
+                string embeddingType = embedding is ai:SparseVector ? "sparsevec" : "vector";
                 string? id = item.id;
                 string query = string `INSERT INTO ${self.tableName} (
                     id,
@@ -99,8 +96,8 @@ public isolated class VectorStore {
                     content) 
                 VALUES (
                     '${id !is () ? id : uuid:createRandomUuid()}',
-                    '${item.embedding.toJsonString()}'::vector,
-                    '${item.chunk.content.toJsonString()}'::jsonb
+                    '${embeddings.toString()}'::${embeddingType},
+                    '${item.chunk.content.toString()}'
                 )`;
                 sql:ParameterizedQuery parameterizedQuery = ``;
                 parameterizedQuery.strings = [query];
@@ -127,43 +124,58 @@ public isolated class VectorStore {
     public isolated function query(ai:VectorStoreQuery query) returns ai:VectorMatch[]|ai:Error {
         ai:VectorMatch[] finalMatches = [];
         lock {
+            ai:Embedding embedding = query.cloneReadOnly().embedding;
+            string embeddings = embedding is ai:SparseVector ?
+                serializeSparseEmbedding(embedding, self.vectorDimension) : embedding.toJsonString();
+            string embeddingType = embedding is ai:SparseVector ? "sparsevec" : "vector";
             ai:VectorMatch[] matches = [];
-            string embeddingJson = query.embedding.toJsonString();
             ai:MetadataFilters? filters = query.cloneReadOnly().filters;
-            string filterQuery = "";
-            if filters !is () {
-                filterQuery = generateFilter(filters);
-            }
-            string baseWhereClause = 
-                string `(1 - (embedding <=> '${embeddingJson}'::vector)) 
-                    IS NOT NULL AND NOT ((1 - (embedding <=> '${embeddingJson}'::vector)) = 'NaN'::float)`;
-            string fullWhereClause = filterQuery != "" 
-                ? string `${baseWhereClause} AND ${filterQuery}` : baseWhereClause;
-
+            string filterQuery = filters !is () ? generateFilter(filters) : "";
+            string baseWhereClause = string `similarity IS NOT NULL AND NOT similarity = 'NaN'::float`;
+            string innerFilterClause = filterQuery != "" ? string `AND ${filterQuery}` : "";
             string queryValue = string `
-                SELECT 
-                    id::text AS id,
-                    embedding::text AS embedding,
-                    metadata::text AS metadata,
-                    (1 - (embedding <=> '${embeddingJson}'::vector)) AS similarity
-                FROM ${self.tableName}
-                WHERE ${fullWhereClause}
-                ORDER BY similarity DESC
-                LIMIT ${self.topK};
-            `;
+                ${embedding is ai:SparseVector ? 
+                    string `SELECT *
+                        FROM (
+                            SELECT 
+                                id::text AS id,
+                                embedding::text AS embedding,
+                                metadata::text AS metadata,
+                                (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
+                            FROM ${self.tableName}
+                            ${innerFilterClause}
+                        ) t
+                        WHERE ${baseWhereClause}
+                        ORDER BY similarity DESC
+                        LIMIT ${self.topK};`
+                    : string `SELECT 
+                                id::text AS id,
+                                embedding::text AS embedding,
+                                metadata::text AS metadata,
+                                (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
+                            FROM ${self.tableName}
+                            WHERE 
+                                (1 - (embedding <=> '${embeddings}'::vector)) IS NOT NULL AND NOT 
+                                ((1 - (embedding <=> '${embeddings}'::vector)) = 'NaN'::float) 
+                                ${innerFilterClause}
+                            ORDER BY similarity DESC
+                            LIMIT ${self.topK};`
+            }`;
             sql:ParameterizedQuery parameterizedQuery = ``;
             parameterizedQuery.strings = [queryValue];
             stream<SearchResult, sql:Error?> resultStream = self.dbClient->query(parameterizedQuery);
-
             record {|SearchResult value;|}? result = check resultStream.next();
             while result !is () {
                 string? metadata = result.value.metadata;
+                ai:Embedding parsedEmbedding = self.embeddingType == ai:SPARSE
+                    ? check deserializeSparseEmbedding(result.value.embedding, self.vectorDimension.cloneReadOnly())
+                    : check result.value.embedding.fromJsonStringWithType();
                 map<string> metadataMap = metadata !is () ? check metadata.fromJsonStringWithType() : {};
                 matches.push({
                     id: result.value.id,
-                    embedding: check result.value.embedding.fromJsonStringWithType(),
+                    embedding: parsedEmbedding,
                     chunk: {
-                        'type: metadataMap.hasKey("type") ? metadataMap.get("type") : "", 
+                        'type: metadataMap.hasKey("type") ? metadataMap.get("type") : "",
                         content: metadataMap.hasKey("content") ? metadataMap.get("content") : ""
                     },
                     similarityScore: result.value.similarity is float ? check result.value.similarity.cloneWithType() : 0.0
