@@ -19,7 +19,7 @@ import ballerina/test;
 import ballerina/uuid;
 import ballerinax/postgresql;
 
-string tableName = "pgvector_table";
+string tableName = "vector_table";
 string id = uuid:createRandomUuid();
 string host = "localhost";
 string user = "postgres";
@@ -38,17 +38,7 @@ VectorStore vectorStore = check new (
         user,
         password,
         database,
-        tableName,
-        additionalColumns: [
-            {
-                name: "created_at",
-                'type: DATE
-            },
-            {
-                name: "updated_at",
-                'type: DATE
-            }
-        ]
+        tableName
     },
     vectorDimension = 3
 );

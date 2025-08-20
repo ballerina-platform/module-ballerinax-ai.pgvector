@@ -59,21 +59,22 @@ public isolated class VectorStore {
         self.additionalColumns = additionalColumns !is () ? additionalColumns.cloneReadOnly() : self.additionalColumns.cloneReadOnly();
         self.topK = connectionConfigs.topK;
         lock {
-            error? initError = self.initializeDatabase(self.tableName, self.additionalColumns);
+            error? initError = self.initializeDatabase(self.tableName);
             if initError is error {
-                log:printWarn("Error during the initializing database.", initError);
+                log:printError("error during database initialization.", initError);
             }
         }
     }
 
-    private isolated function initializeDatabase(string tableName, Column[] additionalColumns) returns error? {
+    private isolated function initializeDatabase(string tableName) returns error? {
         _ = check self.dbClient->execute(`CREATE EXTENSION IF NOT EXISTS vector`);
-        string newColumns = generateColumns(additionalColumns);
+
         sql:ParameterizedQuery parameterizedQuery = ``;
         string query = string `CREATE TABLE IF NOT EXISTS ${tableName} (
             id VARCHAR PRIMARY KEY,
+            content TEXT,
             embedding vector(${self.vectorDimension}),
-            metadata JSONB ${newColumns != "" ? ", " + newColumns : ""}
+            metadata JSONB
         )`;
         parameterizedQuery.strings = [query];
         _ = check self.dbClient->execute(parameterizedQuery);
@@ -95,13 +96,12 @@ public isolated class VectorStore {
                 string query = string `INSERT INTO ${self.tableName} (
                     id,
                     embedding, 
-                    metadata) 
+                    content) 
                 VALUES (
                     '${id !is () ? id : uuid:createRandomUuid()}',
                     '${item.embedding.toJsonString()}'::vector,
-                    '${item.chunk.toJsonString()}'::jsonb
-                )
-                RETURNING embedding, metadata`;
+                    '${item.chunk.content.toJsonString()}'::jsonb
+                )`;
                 sql:ParameterizedQuery parameterizedQuery = ``;
                 parameterizedQuery.strings = [query];
                 _ = check self.dbClient->execute(parameterizedQuery);

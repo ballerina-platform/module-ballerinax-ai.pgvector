@@ -20,7 +20,7 @@ docker run --name pgvector-db \
   -d pgvector/pgvector:pg17
 ```
 
-To enable the pgvector extension, connect to the database and execute the follwing query.
+To enable the pgvector extension, connect to the database and execute the following query.
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -37,7 +37,7 @@ import ballerina/ai;
 import ballerinax/ai.pgvector;
 ```
 
-### Step 2: Initialize the Milvus vector store
+### Step 2: Initialize the Pgvector vector store
 
 ```ballerina
 ai:VectorStore vectorStore = check new(
