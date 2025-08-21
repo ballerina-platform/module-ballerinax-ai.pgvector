@@ -54,23 +54,6 @@ isolated function serializeSparseEmbedding(ai:SparseVector embedding, int dimens
     return vector;
 }
 
-isolated function generateColumns(Column[] additionalColumns) returns string {
-    if additionalColumns.length() == 0 {
-        return "";
-    }
-    string joinedColumns = "";
-    int colCount = additionalColumns.length();
-    int index = 0;
-    foreach Column column in additionalColumns {
-        joinedColumns += string `${column.name} ${column.'type}`;
-        index += 1;
-        if index < colCount {
-            joinedColumns += ", ";
-        }
-    }
-    return joinedColumns;
-}
-
 isolated function generateOperator(ai:MetadataFilterOperator operator) returns string {
     match operator {
         ai:EQUAL => {
@@ -115,4 +98,14 @@ isolated function combineElements(string[] filters, string condition) returns st
         }
     }
     return combined;
+}
+
+isolated function sanitizeValue(string value) returns string {
+    _ = regexp:replaceAll(re `'`, "''", value);
+    regexp:RegExp[] identifiers = [re `;`, re `--`, re `/\*`, re `\*/`, 
+        re `DROP`, re `DELETE`, re `INSERT`, re `UPDATE`, re `CREATE`, re `ALTER`, re `EXEC`, re `UNION`, re `SELECT`];
+    foreach regexp:RegExp identifier in identifiers {
+        _ = regexp:replaceAll(identifier, "", value);
+    }
+    return value;
 }

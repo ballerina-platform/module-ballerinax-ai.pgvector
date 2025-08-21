@@ -35,7 +35,6 @@ public isolated class VectorStore {
     private int topK;
 
     public isolated function init(Configuration configs, int vectorDimension = 1536) returns error? {
-
         self.dbClient = check new (
             host = configs.host,
             username = configs.user,
@@ -63,19 +62,20 @@ public isolated class VectorStore {
         _ = check self.dbClient->execute(`CREATE EXTENSION IF NOT EXISTS vector`);
 
         sql:ParameterizedQuery parameterizedQuery = ``;
-        string query = string `CREATE TABLE IF NOT EXISTS ${tableName} (
-            id VARCHAR PRIMARY KEY,
-            content TEXT,
-            embedding ${self.embeddingType == ai:SPARSE ? "sparsevec" : "vector"}(${self.vectorDimension}),
-            metadata JSONB
+        string query = string `
+            CREATE TABLE IF NOT EXISTS ${sanitizeValue(tableName)} (
+                id VARCHAR PRIMARY KEY,
+                content TEXT,
+                embedding ${self.embeddingType == ai:SPARSE ? "sparsevec" : "vector"}(${self.vectorDimension}),
+                metadata JSONB
         )`;
         parameterizedQuery.strings = [query];
         _ = check self.dbClient->execute(parameterizedQuery);
 
         string opClass = self.embeddingType == ai:SPARSE ? "sparsevec_cosine_ops" : "vector_cosine_ops";
         query = string `
-            CREATE INDEX IF NOT EXISTS ${tableName}_embedding_idx
-            ON ${tableName}
+            CREATE INDEX IF NOT EXISTS ${sanitizeValue(tableName)}_embedding_idx
+            ON ${sanitizeValue(tableName)}
             USING hnsw (embedding ${opClass});
         `;
         parameterizedQuery.strings = [query];
@@ -90,14 +90,15 @@ public isolated class VectorStore {
                     serializeSparseEmbedding(embedding, self.vectorDimension) : embedding.toJsonString();
                 string embeddingType = embedding is ai:SparseVector ? "sparsevec" : "vector";
                 string? id = item.id;
-                string query = string `INSERT INTO ${self.tableName} (
-                    id,
-                    embedding, 
-                    content) 
-                VALUES (
-                    '${id !is () ? id : uuid:createRandomUuid()}',
-                    '${embeddings.toString()}'::${embeddingType},
-                    '${item.chunk.content.toString()}'
+                string query = string `
+                    INSERT INTO ${sanitizeValue(self.tableName)} (
+                        id,
+                        embedding, 
+                        content) 
+                    VALUES (
+                        '${id !is () ? sanitizeValue(id) : uuid:createRandomUuid()}',
+                        '${embeddings.toString()}'::${embeddingType},
+                        '${sanitizeValue(item.chunk.content.toString())}'
                 )`;
                 sql:ParameterizedQuery parameterizedQuery = ``;
                 parameterizedQuery.strings = [query];
@@ -135,32 +136,34 @@ public isolated class VectorStore {
             string innerFilterClause = filterQuery != "" ? string `AND ${filterQuery}` : "";
             string queryValue = string `
                 ${embedding is ai:SparseVector ? 
-                    string `SELECT *
-                        FROM (
-                            SELECT 
-                                id::text AS id,
-                                embedding::text AS embedding,
-                                metadata::text AS metadata,
-                                (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
-                            FROM ${self.tableName}
-                            ${innerFilterClause}
-                        ) t
+                    string `
+                        SELECT *
+                            FROM (
+                                SELECT 
+                                    id::text AS id,
+                                    embedding::text AS embedding,
+                                    metadata::text AS metadata,
+                                    (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
+                                FROM ${sanitizeValue(self.tableName)}
+                                ${sanitizeValue(innerFilterClause)}
+                            ) t
                         WHERE ${baseWhereClause}
                         ORDER BY similarity DESC
                         LIMIT ${self.topK};` : 
-                    string `SELECT 
+                    string `
+                        SELECT 
                             id::text AS id,
                             embedding::text AS embedding,
                             metadata::text AS metadata,
                             (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
-                        FROM ${self.tableName}
+                        FROM ${sanitizeValue(self.tableName)}
                         WHERE 
                             (1 - (embedding <=> '${embeddings}'::vector)) IS NOT NULL AND NOT 
                             ((1 - (embedding <=> '${embeddings}'::vector)) = 'NaN'::float) 
-                            ${innerFilterClause}
+                            ${sanitizeValue(innerFilterClause)}
                         ORDER BY similarity DESC
                         LIMIT ${self.topK};`
-            }`;
+                }`;
             sql:ParameterizedQuery parameterizedQuery = ``;
             parameterizedQuery.strings = [queryValue];
             stream<SearchResult, sql:Error?> resultStream = self.dbClient->query(parameterizedQuery);
@@ -178,7 +181,8 @@ public isolated class VectorStore {
                         'type: metadataMap.hasKey("type") ? metadataMap.get("type") : "",
                         content: metadataMap.hasKey("content") ? metadataMap.get("content") : ""
                     },
-                    similarityScore: result.value.similarity is float ? check result.value.similarity.cloneWithType() : 0.0
+                    similarityScore: result.value.similarity is float ? 
+                        check result.value.similarity.cloneWithType() : 0.0
                 });
                 result = check resultStream.next();
             }
