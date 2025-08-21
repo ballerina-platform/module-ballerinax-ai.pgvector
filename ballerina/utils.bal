@@ -15,17 +15,17 @@
 // under the License.
 
 import ballerina/ai;
-import ballerina/regex;
+import ballerina/lang.regexp;
 
 isolated function deserializeSparseEmbedding(string embedding, int dimension) returns ai:SparseVector|error {
     int? indexOf = embedding.indexOf("}");
     string vector = embedding.substring(1, indexOf !is () ? indexOf : embedding.length() - 3);
-    string[] parts = regex:split(vector, ",");
+    string[] parts = regexp:split(re `,`, vector);
     int[] indices = from int index in 0 ... dimension
         select index;
     float[] values = [];
     foreach string part in parts {
-        string[] indexValue = regex:split(part, ":");
+        string[] indexValue = regexp:split(re `:`, part);
         int index = check int:fromString(indexValue[0]);
         if indices.indexOf(index - 1) != () {
             _ = indices.remove(index - 1);
