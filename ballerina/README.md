@@ -1,6 +1,8 @@
 ## Overview
 
-The Ballerina pgvector module provides an API for integrating with the `pgvector` extension for PostgreSQL. It implements the Ballerina AI `ai:VectorStore` interface which allows users to store, retrieve, and search high-dimensional vectors.
+Pgvector is a PostgreSQL extension that introduces a vector data type and similarity search capabilities for working with embeddings.
+
+The Ballerina pgvector module provides an API for integrating with the `pgvector` extension for PostgreSQL. Its implementation allows it to be used as a Ballerina AI `ai:VectorStore`, enabling users to store, retrieve, and search high-dimensional vectors. 
 
 ## Setup guide
 
