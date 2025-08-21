@@ -24,7 +24,7 @@ import ballerinax/postgresql;
 # + embedding - Vector embedding array
 # + metadata - Optional metadata
 # + similarity - Optional similarity score
-public type SearchResult record {
+type SearchResult record {
     string id;
     string embedding;
     string metadata?;
@@ -62,25 +62,3 @@ public type ConnectionConfig record {|
     sql:ConnectionPool connectionPool = {};
 |};
 
-# Represents a column in the database
-#
-# + name - Name of the column
-# + type - Type of the column
-public type Column record {|
-    string name;
-    ColumnType 'type;
-|};
-
-# Represents the type of the column in postgres database
-public enum ColumnType {
-    INTEGER,
-    BIGINT,
-    SERIAL,
-    VARCHAR,
-    TEXT,
-    BOOLEAN,
-    TIMESTAMP,
-    DATE,
-    JSONB,
-    UUID
-}
