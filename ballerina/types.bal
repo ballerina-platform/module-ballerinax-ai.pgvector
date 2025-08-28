@@ -37,7 +37,6 @@ type SearchResult record {
 # + embeddingType - Type of the embedding to be used
 public type Configuration record {|
     *ConnectionConfig;
-    int topK = 10;
     ai:VectorStoreQueryMode embeddingType = ai:DENSE;
 |};
 

@@ -32,7 +32,6 @@ public isolated class VectorStore {
     private final int vectorDimension;
     private string tableName = "vector_store";
     private final ai:VectorStoreQueryMode embeddingType;
-    private int topK;
 
     public isolated function init(Configuration configs, int vectorDimension = 1536) returns error? {
         self.dbClient = check new (
@@ -48,8 +47,6 @@ public isolated class VectorStore {
         self.embeddingType = configs.embeddingType;
         string? tableName = configs.tableName;
         self.tableName = tableName !is () ? tableName : self.tableName;
-
-        self.topK = configs.topK;
         lock {
             error? initError = self.initializeDatabase(self.tableName);
             if initError is error {
