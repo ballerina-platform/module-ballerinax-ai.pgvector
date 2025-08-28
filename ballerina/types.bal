@@ -33,11 +33,20 @@ type SearchResult record {
 
 # Configuration for the vector store
 #
-# + topK - Maximum number of results to return
+# + host - The host of the database
+# + port - The port of the database
+# + user - The username of the database
+# + password - The password of the database
+# + database - The name of the database
+# + tableName - The name of the table
+# + options - The options for the connection
+# + connectionPool - The connection pool configurations for the database
 # + embeddingType - Type of the embedding to be used
+# + vectorDimension - Dimension of the vector embeddings
 public type Configuration record {|
     *ConnectionConfig;
     ai:VectorStoreQueryMode embeddingType = ai:DENSE;
+    int vectorDimension = 1536;
 |};
 
 # Connection configuration for the vector store
