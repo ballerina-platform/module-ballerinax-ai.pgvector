@@ -18,8 +18,8 @@ import ballerina/ai;
 import ballerina/test;
 import ballerina/uuid;
 
-string tableName = "dense_table_18";
-string sparseTableName = "sparse_table_18";
+string tableName = "dense_table";
+string sparseTableName = "sparse_table";
 string id = uuid:createRandomUuid();
 string host = "localhost";
 string user = "postgres";
@@ -33,9 +33,8 @@ VectorStore vectorStore = check new (
         password,
         database,
         tableName,
-        topK: 1
-    },
-    vectorDimension = 1536
+        vectorDimension: 1536
+    }
 );
 
 VectorStore sparseVectorStore = check new (
@@ -45,9 +44,9 @@ VectorStore sparseVectorStore = check new (
         password,
         database,
         tableName: sparseTableName,
-        embeddingType: ai:SPARSE
-    },
-    vectorDimension = 200
+        embeddingType: ai:SPARSE,
+        vectorDimension: 200
+    }
 );
 
 final float[] vectorEmbedding = check generateEmbedding(1536);
@@ -121,9 +120,39 @@ function testQueryEntriesWithSparseEmbedding() returns error? {
         embedding: {
             indices: [0, 2],
             values: sparseVectorEmbedding
-        }
+        },
+        topK: 1
     });
     test:assertEquals(query[0].similarityScore, 1.0);
+}
+
+@test:Config {
+    dependsOn: [testAddSparseEntry]
+}
+function testQueryEntriesWithoutEmbeddingsAndFilters() returns error? {
+    ai:VectorMatch[] query = check sparseVectorStore.query({
+        topK: 1
+    });
+    test:assertEquals(query[0].similarityScore, 0.0);
+}
+
+@test:Config {
+    dependsOn: [testAddSparseEntry]
+}
+function testQueryEntriesWithFilters() returns error? {
+    ai:VectorMatch[] query = check sparseVectorStore.query({
+        topK: 1,
+        filters: {
+            filters: [
+                {
+                    'key: "id",
+                    operator: ai:EQUAL,
+                    value: id
+                }
+            ]
+        }
+    });
+    test:assertEquals(query[0].similarityScore, 0.0);
 }
 
 @test:Config {
