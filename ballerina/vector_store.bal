@@ -36,8 +36,9 @@ public isolated class VectorStore {
     # Initializes the pgvector vector store with the provided configuration.
     #
     # + configs - Contains configuration for database connections and other necessary parameters
-    public isolated function init(Configuration configs) returns error? {
-        self.dbClient = check new (
+    public isolated function init(Configuration configs) returns ai:Error? {
+        do {
+            self.dbClient = check new (
             host = configs.host,
             username = configs.user,
             password = configs.password,
@@ -46,13 +47,16 @@ public isolated class VectorStore {
             options = configs.options,
             connectionPool = configs.connectionPool
         );
-        self.vectorDimension = configs.vectorDimension;
-        self.embeddingType = configs.embeddingType;
-        string? tableName = configs.tableName;
-        self.tableName = tableName !is () ? tableName : self.tableName;
-        self.similarityMetric = configs.similarityMetric;
-        lock {
-            check self.initializeDatabase(self.tableName);
+            self.vectorDimension = configs.vectorDimension;
+            self.embeddingType = configs.embeddingType;
+            string? tableName = configs.tableName;
+            self.tableName = tableName !is () ? tableName : self.tableName;
+            self.similarityMetric = configs.similarityMetric;
+            lock {
+                check self.initializeDatabase(self.tableName);
+            }
+        } on fail error err {
+            return error("failed to initialize the vector store", err);
         }
     }
 
