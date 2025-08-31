@@ -42,7 +42,7 @@ plugins {
 }
 
 def projectName = 'pgvector'
-rootProject.name = "ballerinax-${projectName}"
+rootProject.name = "ballerinax-ai.${projectName}"
 
 include ":checkstyle"
 include ":${projectName}-ballerina"
