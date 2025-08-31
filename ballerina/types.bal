@@ -41,11 +41,20 @@ type Metadata record {
 #
 # + embeddingType - Type of the embedding to be used
 # + vectorDimension - Dimension of the vector embeddings
+# + similarityMetric - Similarity metric to be used for the similarity search
 public type Configuration record {|
     *ConnectionConfig;
     ai:VectorStoreQueryMode embeddingType = ai:DENSE;
     int vectorDimension = 1536;
+    SimilarityMetric similarityMetric = COSINE;
 |};
+
+# Similarity metric to be used for the similarity search
+public enum SimilarityMetric {
+    COSINE = "<=>",
+    EUCLIDEAN = "<->",
+    MANHATTAN = "<#>"
+};
 
 # Connection configuration for the vector store
 #

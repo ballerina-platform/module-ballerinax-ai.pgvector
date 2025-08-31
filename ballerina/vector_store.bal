@@ -15,7 +15,6 @@
 // under the License.
 
 import ballerina/ai;
-import ballerina/log;
 import ballerina/sql;
 import ballerina/uuid;
 import ballerinax/postgresql;
@@ -32,6 +31,7 @@ public isolated class VectorStore {
     private final int vectorDimension;
     private string tableName = "vector_store";
     private final ai:VectorStoreQueryMode embeddingType;
+    private final SimilarityMetric similarityMetric;
 
     # Initializes the pgvector vector store with the provided configuration.
     #
@@ -50,11 +50,9 @@ public isolated class VectorStore {
         self.embeddingType = configs.embeddingType;
         string? tableName = configs.tableName;
         self.tableName = tableName !is () ? tableName : self.tableName;
+        self.similarityMetric = configs.similarityMetric;
         lock {
-            error? initError = self.initializeDatabase(self.tableName);
-            if initError is error {
-                log:printError("error during database initialization.", initError);
-            }
+            check self.initializeDatabase(self.tableName);
         }
     }
 
@@ -65,6 +63,10 @@ public isolated class VectorStore {
     # + return - Returns an `ai:Error` if the operation fails, otherwise returns nil
     public isolated function add(ai:VectorEntry[] entries) returns ai:Error? {
         lock {
+            if entries.length() == 0 {
+                return;
+            }
+            string[] valuesClauses = [];
             foreach ai:VectorEntry item in entries.cloneReadOnly() {
                 ai:Embedding embedding = item.embedding;
                 string embeddings = embedding is ai:SparseVector ?
@@ -74,22 +76,24 @@ public isolated class VectorStore {
                 map<string> metadata = item.chunk.metadata !is () ? check item.chunk.metadata.cloneWithType() : {};
                 metadata["type"] = item.chunk.'type;
 
-                string query = string `
-                    INSERT INTO ${sanitizeValue(self.tableName)} (
-                        id,
-                        embedding,
-                        content,
-                        metadata)
-                    VALUES (
-                        '${id !is () ? sanitizeValue(id) : uuid:createRandomUuid()}',
-                        '${embeddings.toString()}'::${embeddingType},
-                        '${sanitizeValue(item.chunk.content.toString())}',
-                        '${sanitizeValue(metadata.toJsonString())}'
-                    )`;
-                sql:ParameterizedQuery parameterizedQuery = ``;
-                parameterizedQuery.strings = [query];
-                _ = check self.dbClient->execute(parameterizedQuery);
+                string valuesClause = string `(
+                    '${id !is () ? sanitizeValue(id) : uuid:createRandomUuid()}',
+                    '${embeddings.toString()}'::${embeddingType},
+                    '${sanitizeValue(item.chunk.content.toString())}',
+                    '${sanitizeValue(metadata.toJsonString())}'
+                )`;
+                valuesClauses.push(valuesClause);
             }
+            string query = string `
+                INSERT INTO ${sanitizeValue(self.tableName)} (
+                    id,
+                    embedding,
+                    content,
+                    metadata)
+                VALUES ${string:'join(", ", ...valuesClauses)}`;
+            sql:ParameterizedQuery parameterizedQuery = ``;
+            parameterizedQuery.strings = [query];
+            _ = check self.dbClient->execute(parameterizedQuery);
             return;
         } on fail error err {
             return error("failed to add entries to the vector store", err);
@@ -169,7 +173,7 @@ public isolated class VectorStore {
                                     embedding::text AS embedding,
                                     content::text AS content,
                                     metadata::json AS metadata,
-                                    (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
+                                    (1 - (embedding ${self.similarityMetric} '${embeddings}'::${embeddingType})) AS similarity
                                 FROM ${sanitizeValue(self.tableName)}
                                 ${sanitizeValue(innerFilterClause)}
                             ) t
@@ -182,11 +186,11 @@ public isolated class VectorStore {
                                 embedding::text AS embedding,
                                 content::text AS content,
                                 metadata::json AS metadata,
-                                (1 - (embedding <=> '${embeddings}'::${embeddingType})) AS similarity
+                                (1 - (embedding ${self.similarityMetric} '${embeddings}'::${embeddingType})) AS similarity
                             FROM ${sanitizeValue(self.tableName)}
                             WHERE
-                                (1 - (embedding <=> '${embeddings}'::vector)) IS NOT NULL AND NOT
-                                ((1 - (embedding <=> '${embeddings}'::vector)) = 'NaN'::float)
+                                (1 - (embedding ${self.similarityMetric} '${embeddings}'::vector)) IS NOT NULL AND NOT
+                                ((1 - (embedding ${self.similarityMetric} '${embeddings}'::vector)) = 'NaN'::float)
                                 ${sanitizeValue(innerFilterClause)}
                             ORDER BY similarity DESC
                             LIMIT ${query.topK};`
