@@ -166,3 +166,4 @@ test.finalizedBy stopPostgresServer
 
 publish.dependsOn build
 publishToMavenLocal.dependsOn build
+
