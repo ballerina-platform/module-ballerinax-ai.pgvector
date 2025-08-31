@@ -127,10 +127,10 @@ function testQueryEntriesWithSparseEmbedding() returns error? {
 }
 
 @test:Config {
-    dependsOn: [testAddSparseEntry]
+    dependsOn: [testAddEntry]
 }
 function testQueryEntriesWithoutEmbeddingsAndFilters() returns error? {
-    ai:VectorMatch[] query = check sparseVectorStore.query({
+    ai:VectorMatch[] query = check vectorStore.query({
         topK: 1
     });
     test:assertEquals(query[0].similarityScore, 0.0);
@@ -159,7 +159,7 @@ function testQueryEntriesWithFilters() returns error? {
     dependsOn: [testQueryEntries]
 }
 function testDeleteEntry() returns error? {
-    ai:Error? delete = vectorStore.delete(id);
+    ai:Error? delete = vectorStore.delete([id, id]);
     test:assertTrue(delete !is ai:Error);
 
     delete = sparseVectorStore.delete(id);
