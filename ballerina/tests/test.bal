@@ -130,6 +130,16 @@ function testQueryEntriesWithSparseEmbedding() returns error? {
     dependsOn: [testAddEntry]
 }
 function testQueryEntriesWithoutEmbeddingsAndFilters() returns error? {
+    _ = check vectorStore.add([
+        {
+            id,
+            embedding: vectorEmbedding,
+            chunk: {
+                'type: "text",
+                content: "This is a chunk"
+            }
+        }
+    ]);
     ai:VectorMatch[] query = check vectorStore.query({
         topK: 1
     });
