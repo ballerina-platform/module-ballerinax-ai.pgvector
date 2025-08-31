@@ -18,29 +18,27 @@ import ballerina/ai;
 import ballerina/sql;
 import ballerinax/postgresql;
 
-# Represents vector data without ID
+# Represents a single row of the search result.
 #
-# + id - Unique identifier
-# + embedding - Vector embedding array
-# + metadata - Optional metadata
-# + similarity - Optional similarity score
+# + id - Unique identifier of the entry
+# + embedding - The embedding of the entry
+# + content - Content associated with the entry
+# + metadata - Metadata associated with the entry
+# + similarity - Similarity score in the range which present only for similarity queries
 type SearchResult record {
     string id;
     string embedding;
-    string metadata?;
+    string content?;
+    json metadata?;
     float similarity?;
+};
+
+type Metadata record {
+    string 'type?;
 };
 
 # Configuration for the vector store
 #
-# + host - The host of the database
-# + port - The port of the database
-# + user - The username of the database
-# + password - The password of the database
-# + database - The name of the database
-# + tableName - The name of the table
-# + options - The options for the connection
-# + connectionPool - The connection pool configurations for the database
 # + embeddingType - Type of the embedding to be used
 # + vectorDimension - Dimension of the vector embeddings
 public type Configuration record {|
