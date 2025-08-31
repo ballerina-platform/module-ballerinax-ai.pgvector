@@ -203,25 +203,25 @@ public isolated class VectorStore {
             sql:ParameterizedQuery parameterizedQuery = ``;
             parameterizedQuery.strings = [queryValue];
             stream<SearchResult, sql:Error?> resultStream = self.dbClient->query(parameterizedQuery);
-            record {|SearchResult value;|}? result = check resultStream.next();
-            while result !is () {
-                Metadata? metadata = result.value?.metadata !is () ? check result.value?.metadata.cloneWithType(Metadata) : {};
+            check from SearchResult item in resultStream
+            do {
+                json? metaJson = item["metadata"];
+                Metadata? metadata = metaJson is () ? () : check metaJson.cloneWithType(Metadata);
                 ai:Embedding parsedEmbedding = self.embeddingType == ai:SPARSE
-                    ? check deserializeSparseEmbedding(result.value.embedding, self.vectorDimension.cloneReadOnly())
-                    : check result.value.embedding.fromJsonStringWithType();
+                    ? check deserializeSparseEmbedding(item.embedding, self.vectorDimension.cloneReadOnly())
+                    : check item.embedding.fromJsonStringWithType();
                 matches.push({
-                    id: result.value.id,
+                    id: item.id,
                     embedding: parsedEmbedding,
                     chunk: {
-                        'type: metadata !is () && metadata.'type !is () ? <string>metadata.'type : "",
-                        content: result.value.content is () ? result.value.content : "",
+                        'type: metadata !is () && metadata["type"] is string ? <string>metadata["type"] : "",
+                        content: item["content"] is string ? <string>item["content"] : "",
                         metadata: metadata !is () ? check metadata.cloneWithType() : ()
                     },
-                    similarityScore: result.value.similarity is float ?
-                        check result.value.similarity.cloneWithType() : 0.0
+                    similarityScore: item["similarity"] is float ?
+                        <float>item["similarity"] : 0.0
                 });
-                result = check resultStream.next();
-            }
+            };
             finalMatches = matches.cloneReadOnly();
         } on fail var err {
             return error("failed to query the vector store", err);
