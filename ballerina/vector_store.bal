@@ -35,10 +35,25 @@ public isolated class VectorStore {
 
     # Initializes the pgvector vector store with the provided configuration.
     #
+    # + host - The host name of the database
+    # + user - The username of the database
+    # + password - The password of the database
+    # + database - The name of the database
+    # + tableName - The name of the table
+    # + port - The port number of the database
+    # + options - Additional set of configurations for the database
+    # + connectionPool - Properties to configure connection pool
     # + configs - Contains configuration for database connections and other necessary parameters
-    public isolated function init(string host, string user, string password, string database,
-            string tableName = "vector_store", int port = 5432, postgresql:Options options = {},
-            sql:ConnectionPool connectionPool = {}, Configuration configs = {}) returns ai:Error? {
+    public isolated function init(
+            @display {label: "Host name"} string host, 
+            @display {label: "Username"} string user, 
+            @display {label: "Password"} string password, 
+            @display {label: "Database name"} string database,
+            @display {label: "Table name"} string tableName = "vector_store", 
+            @display {label: "Port number"} int port = 5432,  
+            @display {label: "Additional set of configurations for the database"} postgresql:Options options = {},
+            @display {label: "Properties to configure connection pool"} sql:ConnectionPool connectionPool = {}, 
+            @display {label: "Configurations for the vector store"} Configuration configs = {}) returns ai:Error? {
         do {
             self.dbClient = check new (host, user, password, database, port, options, connectionPool);
             self.vectorDimension = configs.vectorDimension;
