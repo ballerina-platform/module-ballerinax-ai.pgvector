@@ -18,8 +18,8 @@ import ballerina/ai;
 import ballerina/test;
 import ballerina/uuid;
 
-string tableName = "dense_table";
-string sparseTableName = "sparse_table";
+string tableName = "dense_table_70";
+string sparseTableName = "sparse_table_70";
 string id = uuid:createRandomUuid();
 string host = "localhost";
 string user = "postgres";
@@ -27,23 +27,23 @@ string password = "postgres";
 string database = "vector_store";
 
 VectorStore vectorStore = check new (
+    host,
+    user,
+    password,
+    database,
+    tableName,
     configs = {
-        host,
-        user,
-        password,
-        database,
-        tableName,
         vectorDimension: 1536
     }
 );
 
 VectorStore sparseVectorStore = check new (
+    host,
+    user,
+    password,
+    database,
+    sparseTableName,
     configs = {
-        host,
-        user,
-        password,
-        database,
-        tableName: sparseTableName,
         embeddingType: ai:SPARSE,
         vectorDimension: 200
     }
