@@ -37,19 +37,14 @@ import ballerinax/ai.pgvector;
 
 ```ballerina
 ai:VectorStore vectorStore = check new(
-   options = {
-      ssl: {
-         mode: postgresql:DISABLE // use only if the SSL is disabled
-      }
-   },
-   connectionConfigs = {
-      host,
-      user,
-      password,
-      database,
-      tableName
-   },
-   vectorDimension = 3
+   host,
+   user,
+   password,
+   database,
+   tableName,
+   configs = {
+      vectorDimension: 1536
+   }
 );
 ```
 
@@ -59,7 +54,7 @@ ai:VectorStore vectorStore = check new(
 ai:Error? result = vectorStore.add(
    [
       {
-         id: uuid:createRandomUuid(),
+         id: "1",
          embedding: [1.0, 2.0, 3.0],
          chunk: {
                'type: "text", 
