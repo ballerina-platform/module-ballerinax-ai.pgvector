@@ -15,8 +15,6 @@
 // under the License.
 
 import ballerina/ai;
-import ballerina/sql;
-import ballerinax/postgresql;
 
 # Represents a single row of the search result.
 #
@@ -43,7 +41,6 @@ type Metadata record {
 # + vectorDimension - Dimension of the vector embeddings
 # + similarityMetric - Similarity metric to be used for the similarity search
 public type Configuration record {|
-    *ConnectionConfig;
     ai:VectorStoreQueryMode embeddingType = ai:DENSE;
     int vectorDimension = 1536;
     SimilarityMetric similarityMetric = COSINE;
@@ -55,25 +52,3 @@ public enum SimilarityMetric {
     EUCLIDEAN = "<->",
     MANHATTAN = "<#>"
 };
-
-# Connection configuration for the vector store
-#
-# + host - The host of the database
-# + port - The port of the database
-# + user - The username of the database
-# + password - The password of the database
-# + database - The name of the database
-# + tableName - The name of the table
-# + options - The options for the connection
-# + connectionPool - The connection pool configurations for the database
-public type ConnectionConfig record {|
-    string host;
-    int port = 5432;
-    string user;
-    string password;
-    string database;
-    string tableName?;
-    postgresql:Options options = {};
-    sql:ConnectionPool connectionPool = {};
-|};
-

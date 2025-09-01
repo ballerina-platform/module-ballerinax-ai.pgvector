@@ -29,28 +29,36 @@ public isolated class VectorStore {
     *ai:VectorStore;
     final postgresql:Client dbClient;
     private final int vectorDimension;
-    private string tableName = "vector_store";
+    private string tableName;
     private final ai:VectorStoreQueryMode embeddingType;
     private final SimilarityMetric similarityMetric;
 
     # Initializes the pgvector vector store with the provided configuration.
     #
+    # + host - The host name of the database
+    # + user - The username of the database
+    # + password - The password of the database
+    # + database - The name of the database
+    # + tableName - The name of the table
+    # + port - The port number of the database
+    # + options - Additional set of configurations for the database
+    # + connectionPool - Properties to configure connection pool
     # + configs - Contains configuration for database connections and other necessary parameters
-    public isolated function init(Configuration configs) returns ai:Error? {
+    public isolated function init(
+            @display {label: "Host name"} string host, 
+            @display {label: "Username"} string user, 
+            @display {label: "Password"} string password, 
+            @display {label: "Database name"} string database,
+            @display {label: "Table name"} string tableName = "vector_store", 
+            @display {label: "Port number"} int port = 5432,  
+            @display {label: "Additional set of configurations for the database"} postgresql:Options options = {},
+            @display {label: "Properties to configure connection pool"} sql:ConnectionPool connectionPool = {}, 
+            @display {label: "Configurations for the vector store"} Configuration configs = {}) returns ai:Error? {
         do {
-            self.dbClient = check new (
-            host = configs.host,
-            username = configs.user,
-            password = configs.password,
-            database = configs.database,
-            port = configs.port,
-            options = configs.options,
-            connectionPool = configs.connectionPool
-        );
+            self.dbClient = check new (host, user, password, database, port, options, connectionPool);
             self.vectorDimension = configs.vectorDimension;
             self.embeddingType = configs.embeddingType;
-            string? tableName = configs.tableName;
-            self.tableName = tableName !is () ? tableName : self.tableName;
+            self.tableName = tableName;
             self.similarityMetric = configs.similarityMetric;
             lock {
                 check self.initializeDatabase(self.tableName);
@@ -169,7 +177,7 @@ public isolated class VectorStore {
                 string innerFilterClause = filterQuery != "" ? string `AND ${filterQuery}` : "";
                 queryValue = string `
                     ${embedding is ai:SparseVector ?
-                        string `
+                    string `
                             SELECT *
                             FROM (
                                 SELECT
@@ -184,7 +192,7 @@ public isolated class VectorStore {
                             WHERE ${baseWhereClause}
                             ORDER BY similarity DESC
                             LIMIT ${query.topK};` :
-                        string `
+                    string `
                             SELECT
                                 id::text AS id,
                                 embedding::text AS embedding,
@@ -204,24 +212,24 @@ public isolated class VectorStore {
             parameterizedQuery.strings = [queryValue];
             stream<SearchResult, sql:Error?> resultStream = self.dbClient->query(parameterizedQuery);
             check from SearchResult item in resultStream
-            do {
-                json? metaJson = item["metadata"];
-                Metadata? metadata = metaJson is () ? () : check metaJson.cloneWithType(Metadata);
-                ai:Embedding parsedEmbedding = self.embeddingType == ai:SPARSE
-                    ? check deserializeSparseEmbedding(item.embedding, self.vectorDimension.cloneReadOnly())
-                    : check item.embedding.fromJsonStringWithType();
-                matches.push({
-                    id: item.id,
-                    embedding: parsedEmbedding,
-                    chunk: {
-                        'type: metadata !is () && metadata["type"] is string ? <string>metadata["type"] : "",
-                        content: item["content"] is string ? <string>item["content"] : "",
-                        metadata: metadata !is () ? check metadata.cloneWithType() : ()
-                    },
-                    similarityScore: item["similarity"] is float ?
-                        <float>item["similarity"] : 0.0
-                });
-            };
+                do {
+                    json? metaJson = item["metadata"];
+                    Metadata? metadata = metaJson is () ? () : check metaJson.cloneWithType(Metadata);
+                    ai:Embedding parsedEmbedding = self.embeddingType == ai:SPARSE
+                        ? check deserializeSparseEmbedding(item.embedding, self.vectorDimension.cloneReadOnly())
+                        : check item.embedding.fromJsonStringWithType();
+                    matches.push({
+                        id: item.id,
+                        embedding: parsedEmbedding,
+                        chunk: {
+                            'type: metadata !is () && metadata["type"] is string ? <string>metadata["type"] : "",
+                            content: item["content"] is string ? <string>item["content"] : "",
+                            metadata: metadata !is () ? check metadata.cloneWithType() : ()
+                        },
+                        similarityScore: item["similarity"] is float ?
+                            <float>item["similarity"] : 0.0
+                    });
+                };
             finalMatches = matches.cloneReadOnly();
         } on fail var err {
             return error("failed to query the vector store", err);
