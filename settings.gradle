@@ -41,14 +41,13 @@ plugins {
     id "com.gradle.enterprise" version "3.2"
 }
 
-def projectName = 'pgvector'
-rootProject.name = "ballerinax-ai.${projectName}"
+rootProject.name = "module-balerinax-ai.pgvector"
 
 include ":checkstyle"
-include ":${projectName}-ballerina"
+include ":ai.pgvector-ballerina"
 
 project(':checkstyle').projectDir = file("build-config${File.separator}checkstyle")
-project(":${projectName}-ballerina").projectDir = file('ballerina')
+project(":ai.pgvector-ballerina").projectDir = file('ballerina')
 
 gradleEnterprise {
     buildScan {
