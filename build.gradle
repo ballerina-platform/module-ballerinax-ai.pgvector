@@ -64,7 +64,7 @@ allprojects {
 }
 
 task build {
-    dependsOn(":pgvector-ballerina:build")
+    dependsOn(":ai.pgvector-ballerina:build")
 }
 
 def moduleVersion = project.version.replace("-SNAPSHOT", "")
