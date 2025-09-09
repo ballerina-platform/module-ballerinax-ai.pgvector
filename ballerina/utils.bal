@@ -65,11 +65,18 @@ isolated function generateOperator(ai:MetadataFilterOperator operator) returns s
     }
 }
 
+isolated function generateValue(anydata value) returns string {
+    if value is string {
+        return string `'${value}'`;
+    }
+    return string `'${value.toString()}'::jsonb`;
+}
+
 isolated function generateFilter(ai:MetadataFilters|ai:MetadataFilter node) returns string {
     if node is ai:MetadataFilter {
         string operator = generateOperator(node.operator);
         json value = node.value;
-        return string `${node.key} ${operator} ${value is string ? string `'${value}'` : value.toString()}`;
+        return string `'${node.key}' ${operator} ${generateValue(value)}`;
     }
     string condition = string ` ${node.condition.toString().toUpperAscii()} `;
     string[] filters = [];
