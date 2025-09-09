@@ -126,13 +126,3 @@ ai:VectorMatch[]|error query = vectorStore.query({
 });
 io:println("Query Results: ", query);
 ```
-
-## Step 8: Understanding the results
-
-The query returns an array of `ai:VectorMatch` objects, each containing,
-
-- `id`: The unique identifier of the matching entry
-- `similarity`: The similarity score between the search embedding and the stored embedding
-- `chunk`: The original content and metadata of the customer support query
-
-The results are ordered by similarity score, with the most similar entries appearing first. The metadata filtering ensures that only entries matching the specified solution are returned.
