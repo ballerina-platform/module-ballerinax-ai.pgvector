@@ -17,6 +17,7 @@
 import ballerina/ai;
 import ballerina/test;
 import ballerina/uuid;
+import ballerina/time;
 
 string tableName = "dense_table_70";
 string sparseTableName = "sparse_table_70";
@@ -52,6 +53,8 @@ VectorStore sparseVectorStore = check new (
 final float[] vectorEmbedding = check generateEmbedding(1536);
 final float[] sparseVectorEmbedding = check generateEmbedding(200);
 
+time:Utc createdAt = time:utcNow(1);
+
 function generateEmbedding(int dimension) returns float[]|error {
     float[] embedding = [];
     foreach int i in 1...dimension {
@@ -60,7 +63,9 @@ function generateEmbedding(int dimension) returns float[]|error {
     return embedding;
 }
 
-@test:Config {}
+@test:Config {
+    groups: ["add"]
+}
 function testAddEntry() returns error? {
     ai:Error? result = vectorStore.add([
         {
@@ -68,7 +73,10 @@ function testAddEntry() returns error? {
             embedding: vectorEmbedding,
             chunk: {
                 'type: "text",
-                content: "This is a chunk"
+                content: "This is a chunk",
+                metadata: {
+                    createdAt
+                }
             }
         }
     ]);
@@ -86,7 +94,10 @@ function testAddSparseEntry() returns error? {
             },
             chunk: {
                 'type: "text",
-                content: "This is a chunk"
+                content: "This is a chunk",
+                metadata: {
+                    createdAt
+                }
             }
         }
     ]);
@@ -102,9 +113,9 @@ function testQueryEntries() returns error? {
         filters: {
             filters: [
                 {
-                    'key: "id",
+                    'key: "createdAt",
                     operator: ai:EQUAL,
-                    value: id
+                    value: createdAt
                 }
             ]
         }
@@ -155,9 +166,9 @@ function testQueryEntriesWithFilters() returns error? {
         filters: {
             filters: [
                 {
-                    'key: "id",
+                    'key: "createdAt",
                     operator: ai:EQUAL,
-                    value: id
+                    value: createdAt
                 }
             ]
         }
