@@ -85,7 +85,7 @@ public isolated class VectorStore {
                     serializeSparseEmbedding(embedding, self.vectorDimension) : embedding.toJsonString();
                 string embeddingType = embedding is ai:SparseVector ? "sparsevec" : "vector";
                 string? id = item.id;
-                map<string> metadata = item.chunk.metadata !is () ? check item.chunk.metadata.cloneWithType() : {};
+                map<anydata> metadata = item.chunk.metadata !is () ? check item.chunk.metadata.cloneWithType() : {};
                 metadata["type"] = item.chunk.'type;
 
                 string valuesClause = string `(
@@ -101,8 +101,8 @@ public isolated class VectorStore {
                     id,
                     embedding,
                     content,
-                    metadata)
-                VALUES ${string:'join(", ", ...valuesClauses)}`;
+                    metadata
+                ) VALUES ${string:'join(", ", ...valuesClauses)}`;
             sql:ParameterizedQuery parameterizedQuery = ``;
             parameterizedQuery.strings = [query];
             _ = check self.dbClient->execute(parameterizedQuery);
@@ -165,7 +165,7 @@ public isolated class VectorStore {
                         content::text AS content,
                         metadata::json AS metadata
                     FROM ${sanitizeValue(self.tableName)}
-                    WHERE ${sanitizeValue(filterQuery)}
+                    WHERE metadata->${sanitizeValue(filterQuery)}
                     ${query.topK > -1 ? string `LIMIT ${query.topK}` : ""};
                 `;
             } else {
@@ -174,7 +174,7 @@ public isolated class VectorStore {
                 string embeddingType = embedding is ai:SparseVector ? "sparsevec" : "vector";
                 string filterQuery = filters !is () ? generateFilter(filters) : "";
                 string baseWhereClause = string `similarity IS NOT NULL AND NOT similarity = 'NaN'::float`;
-                string innerFilterClause = filterQuery != "" ? string `AND ${filterQuery}` : "";
+                string innerFilterClause = filterQuery != "" ? string `AND metadata->${filterQuery}` : "";
                 queryValue = string `
                     ${embedding is ai:SparseVector ?
                     string `

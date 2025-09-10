@@ -17,10 +17,12 @@
 import ballerina/ai;
 import ballerina/test;
 import ballerina/uuid;
+import ballerina/time;
 
 string tableName = "dense_table_70";
 string sparseTableName = "sparse_table_70";
 string id = uuid:createRandomUuid();
+string newId = uuid:createRandomUuid();
 string host = "localhost";
 string user = "postgres";
 string password = "postgres";
@@ -52,6 +54,8 @@ VectorStore sparseVectorStore = check new (
 final float[] vectorEmbedding = check generateEmbedding(1536);
 final float[] sparseVectorEmbedding = check generateEmbedding(200);
 
+time:Utc createdAt = time:utcNow(1);
+
 function generateEmbedding(int dimension) returns float[]|error {
     float[] embedding = [];
     foreach int i in 1...dimension {
@@ -68,7 +72,10 @@ function testAddEntry() returns error? {
             embedding: vectorEmbedding,
             chunk: {
                 'type: "text",
-                content: "This is a chunk"
+                content: "This is a chunk",
+                metadata: {
+                    createdAt
+                }
             }
         }
     ]);
@@ -86,7 +93,10 @@ function testAddSparseEntry() returns error? {
             },
             chunk: {
                 'type: "text",
-                content: "This is a chunk"
+                content: "This is a chunk",
+                metadata: {
+                    createdAt
+                }
             }
         }
     ]);
@@ -102,9 +112,9 @@ function testQueryEntries() returns error? {
         filters: {
             filters: [
                 {
-                    'key: "id",
+                    'key: "createdAt",
                     operator: ai:EQUAL,
-                    value: id
+                    value: createdAt
                 }
             ]
         }
@@ -132,7 +142,7 @@ function testQueryEntriesWithSparseEmbedding() returns error? {
 function testQueryEntriesWithoutEmbeddingsAndFilters() returns error? {
     _ = check vectorStore.add([
         {
-            id,
+            id: newId,
             embedding: vectorEmbedding,
             chunk: {
                 'type: "text",
@@ -155,9 +165,9 @@ function testQueryEntriesWithFilters() returns error? {
         filters: {
             filters: [
                 {
-                    'key: "id",
+                    'key: "createdAt",
                     operator: ai:EQUAL,
-                    value: id
+                    value: createdAt
                 }
             ]
         }
@@ -166,10 +176,48 @@ function testQueryEntriesWithFilters() returns error? {
 }
 
 @test:Config {
-    dependsOn: [testQueryEntries]
+    dependsOn: [testAddEntry]
+}
+function testQueryEntriesWithFiltersForDenseEmbedding() returns error? {
+    ai:VectorMatch[] query = check vectorStore.query({
+        topK: 1,
+        filters: {
+            filters: [
+                {
+                    'key: "createdAt",
+                    operator: ai:EQUAL,
+                    value: createdAt
+                }
+            ]
+        }
+    });
+    test:assertEquals(query[0].similarityScore, 0.0);
+}
+
+@test:Config {
+    dependsOn: [testAddEntry]
+}
+function testQueryEntriesWithInvalidFilters() returns error? {
+    ai:VectorMatch[]|ai:Error result = vectorStore.query({
+        topK: 1,
+        filters: {
+            filters: [
+                {
+                    'key: "invalidKey",
+                    operator: ai:EQUAL,
+                    value: "invalidValue"
+                }
+            ]
+        }
+    });
+    test:assertTrue(result is ai:Error);
+}
+
+@test:Config {
+    dependsOn: [testQueryEntries, testQueryEntriesWithFiltersForDenseEmbedding]
 }
 function testDeleteEntry() returns error? {
-    ai:Error? delete = vectorStore.delete([id, id]);
+    ai:Error? delete = vectorStore.delete([id, newId]);
     test:assertTrue(delete !is ai:Error);
 
     delete = sparseVectorStore.delete(id);

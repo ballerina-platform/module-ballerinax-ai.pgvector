@@ -45,9 +45,11 @@ rootProject.name = "module-balerinax-ai.pgvector"
 
 include ":checkstyle"
 include ":ai.pgvector-ballerina"
+include ":ai.pgvector-examples"
 
 project(':checkstyle').projectDir = file("build-config${File.separator}checkstyle")
 project(":ai.pgvector-ballerina").projectDir = file('ballerina')
+project(":ai.pgvector-examples").projectDir = file('examples')
 
 gradleEnterprise {
     buildScan {
