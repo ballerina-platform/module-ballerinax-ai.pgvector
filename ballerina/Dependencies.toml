@@ -411,7 +411,7 @@ dependencies = [
 [[package]]
 org = "ballerinax"
 name = "ai.pgvector"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
 	{org = "ballerina", name = "ai"},
 	{org = "ballerina", name = "lang.regexp"},
