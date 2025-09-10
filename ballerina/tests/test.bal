@@ -195,6 +195,25 @@ function testQueryEntriesWithFiltersForDenseEmbedding() returns error? {
 }
 
 @test:Config {
+    dependsOn: [testAddEntry]
+}
+function testQueryEntriesWithInvalidFilters() returns error? {
+    ai:VectorMatch[]|ai:Error result = vectorStore.query({
+        topK: 1,
+        filters: {
+            filters: [
+                {
+                    'key: "invalidKey",
+                    operator: ai:EQUAL,
+                    value: "invalidValue"
+                }
+            ]
+        }
+    });
+    test:assertTrue(result is ai:Error);
+}
+
+@test:Config {
     dependsOn: [testQueryEntries, testQueryEntriesWithFiltersForDenseEmbedding]
 }
 function testDeleteEntry() returns error? {
