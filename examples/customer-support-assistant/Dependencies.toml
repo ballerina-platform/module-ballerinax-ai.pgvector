@@ -108,7 +108,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.15.1"
+version = "2.14.5"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -243,7 +243,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "log"
-version = "2.13.0"
+version = "2.12.0"
 dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"},
@@ -385,7 +385,7 @@ modules = [
 [[package]]
 org = "ballerinax"
 name = "ai.pgvector"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
 	{org = "ballerina", name = "ai"},
 	{org = "ballerina", name = "lang.regexp"},
