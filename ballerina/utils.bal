@@ -76,7 +76,11 @@ isolated function generateFilter(ai:MetadataFilters|ai:MetadataFilter node) retu
     if node is ai:MetadataFilter {
         string operator = generateOperator(node.operator);
         json value = node.value;
-        return string `'${node.key}' ${operator} ${generateValue(value)}`;
+        if value is string {
+            return string `metadata->>'${node.key}' ${operator} '${value}'`;
+        } else {
+            return string `metadata->'${node.key}' ${operator} '${value.toString()}'::jsonb`;
+        }
     }
     string condition = string ` ${node.condition.toString().toUpperAscii()} `;
     string[] filters = [];
@@ -108,11 +112,11 @@ isolated function combineElements(string[] filters, string condition) returns st
 }
 
 isolated function sanitizeValue(string value) returns string {
-    _ = regexp:replaceAll(re `'`, "''", value);
+    string sanitizedValue = regexp:replaceAll(re `'`, value, "''");
     regexp:RegExp[] identifiers = [re `;`, re `--`, re `/\*`, re `\*/`, 
         re `DROP`, re `DELETE`, re `INSERT`, re `UPDATE`, re `CREATE`, re `ALTER`, re `EXEC`, re `UNION`, re `SELECT`];
     foreach regexp:RegExp identifier in identifiers {
-        _ = regexp:replaceAll(identifier, "", value);
+        sanitizedValue = regexp:replaceAll(identifier, sanitizedValue, "");
     }
-    return value;
+    return sanitizedValue;
 }

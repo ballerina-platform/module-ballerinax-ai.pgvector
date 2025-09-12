@@ -55,6 +55,7 @@ final float[] vectorEmbedding = check generateEmbedding(1536);
 final float[] sparseVectorEmbedding = check generateEmbedding(200);
 
 time:Utc createdAt = time:utcNow(1);
+string fileName = "test.txt";
 
 function generateEmbedding(int dimension) returns float[]|error {
     float[] embedding = [];
@@ -74,7 +75,8 @@ function testAddEntry() returns error? {
                 'type: "text",
                 content: "This is a chunk",
                 metadata: {
-                    createdAt
+                    createdAt,
+                    fileName
                 }
             }
         }
@@ -95,7 +97,8 @@ function testAddSparseEntry() returns error? {
                 'type: "text",
                 content: "This is a chunk",
                 metadata: {
-                    createdAt
+                    createdAt,
+                    fileName
                 }
             }
         }
@@ -184,6 +187,11 @@ function testQueryEntriesWithFiltersForDenseEmbedding() returns error? {
         filters: {
             filters: [
                 {
+                    'key: "fileName",
+                    operator: ai:EQUAL,
+                    value: fileName
+                },
+                {
                     'key: "createdAt",
                     operator: ai:EQUAL,
                     value: createdAt
@@ -198,7 +206,7 @@ function testQueryEntriesWithFiltersForDenseEmbedding() returns error? {
     dependsOn: [testAddEntry]
 }
 function testQueryEntriesWithInvalidFilters() returns error? {
-    ai:VectorMatch[]|ai:Error result = vectorStore.query({
+    ai:VectorMatch[] result = check vectorStore.query({
         topK: 1,
         filters: {
             filters: [
@@ -210,7 +218,7 @@ function testQueryEntriesWithInvalidFilters() returns error? {
             ]
         }
     });
-    test:assertTrue(result is ai:Error);
+    test:assertEquals(result.length(), 0);
 }
 
 @test:Config {
