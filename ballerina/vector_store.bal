@@ -165,7 +165,7 @@ public isolated class VectorStore {
                         content::text AS content,
                         metadata::json AS metadata
                     FROM ${sanitizeValue(self.tableName)}
-                    WHERE metadata->${sanitizeValue(filterQuery)}
+                    WHERE ${filterQuery}
                     ${query.topK > -1 ? string `LIMIT ${query.topK}` : ""};
                 `;
             } else {
@@ -174,7 +174,7 @@ public isolated class VectorStore {
                 string embeddingType = embedding is ai:SparseVector ? "sparsevec" : "vector";
                 string filterQuery = filters !is () ? generateFilter(filters) : "";
                 string baseWhereClause = string `similarity IS NOT NULL AND NOT similarity = 'NaN'::float`;
-                string innerFilterClause = filterQuery != "" ? string `AND metadata->${filterQuery}` : "";
+                string innerFilterClause = filterQuery != "" ? string `AND ${filterQuery}` : "";
                 queryValue = string `
                     ${embedding is ai:SparseVector ?
                     string `
@@ -187,7 +187,7 @@ public isolated class VectorStore {
                                     metadata::json AS metadata,
                                     (1 - (embedding ${self.similarityMetric} '${embeddings}'::${embeddingType})) AS similarity
                                 FROM ${sanitizeValue(self.tableName)}
-                                ${sanitizeValue(innerFilterClause)}
+                                ${innerFilterClause}
                             ) t
                             WHERE ${baseWhereClause}
                             ORDER BY similarity DESC
@@ -203,7 +203,7 @@ public isolated class VectorStore {
                             WHERE
                                 (1 - (embedding ${self.similarityMetric} '${embeddings}'::vector)) IS NOT NULL AND NOT
                                 ((1 - (embedding ${self.similarityMetric} '${embeddings}'::vector)) = 'NaN'::float)
-                                ${sanitizeValue(innerFilterClause)}
+                                ${innerFilterClause}
                             ORDER BY similarity DESC
                             LIMIT ${query.topK};`
                     }`;
@@ -218,14 +218,14 @@ public isolated class VectorStore {
                     ai:Embedding parsedEmbedding = self.embeddingType == ai:SPARSE
                         ? check deserializeSparseEmbedding(item.embedding, self.vectorDimension.cloneReadOnly())
                         : check item.embedding.fromJsonStringWithType();
+                    ai:TextChunk chunk = {
+                        content: item["content"] is string ? <string>item["content"] : "",
+                        metadata: metadata !is () ? check metadata.cloneWithType() : ()
+                    };
                     matches.push({
                         id: item.id,
                         embedding: parsedEmbedding,
-                        chunk: {
-                            'type: metadata !is () && metadata["type"] is string ? <string>metadata["type"] : "",
-                            content: item["content"] is string ? <string>item["content"] : "",
-                            metadata: metadata !is () ? check metadata.cloneWithType() : ()
-                        },
+                        chunk,
                         similarityScore: item["similarity"] is float ?
                             <float>item["similarity"] : 0.0
                     });
