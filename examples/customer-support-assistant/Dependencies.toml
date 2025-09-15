@@ -385,7 +385,7 @@ modules = [
 [[package]]
 org = "ballerinax"
 name = "ai.pgvector"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
 	{org = "ballerina", name = "ai"},
 	{org = "ballerina", name = "lang.regexp"},
