@@ -37,6 +37,11 @@ dependencies = [
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerina", name = "yaml"}
 ]
+modules = [
+	{org = "ballerina", packageName = "ai", moduleName = "ai"},
+	{org = "ballerina", packageName = "ai", moduleName = "ai.intelligence"},
+	{org = "ballerina", packageName = "ai", moduleName = "ai.observe"}
+]
 
 [[package]]
 org = "ballerina"
@@ -446,6 +451,7 @@ org = "wso2"
 name = "customer_support_assistant"
 version = "0.1.0"
 dependencies = [
+	{org = "ballerina", name = "ai"},
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerinai", name = "observe"},
